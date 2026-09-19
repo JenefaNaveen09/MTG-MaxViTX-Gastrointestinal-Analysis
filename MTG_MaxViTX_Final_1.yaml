@@ -1,0 +1,158 @@
+schema_version: 1
+source_notebook: MTG_MaxViTX_Final_1.ipynb
+profile: full_pipeline_refinement_and_ensemble
+
+runtime:
+  platform: google_colab
+  device: auto
+  preferred_accelerator: cuda
+  seed: 42
+  num_workers: 0
+  gradient_accumulation_steps: 1
+  mixed_precision_on_cuda: true
+  cudnn_deterministic: false
+  cudnn_benchmark: true
+
+paths:
+  drive_root: /content/drive/MyDrive
+  data_project: /content/drive/MyDrive/MTG_MambaX
+  project: /content/drive/MyDrive/MTG_MaxViTX
+  data: /content/drive/MyDrive/MTG_MambaX/data
+  raw: /content/drive/MyDrive/MTG_MambaX/data/raw
+  extracted: /content/drive/MyDrive/MTG_MambaX/data/extracted
+  metadata: /content/drive/MyDrive/MTG_MambaX/data/metadata
+  splits: /content/drive/MyDrive/MTG_MaxViTX/splits
+  checkpoints: /content/drive/MyDrive/MTG_MaxViTX/checkpoints
+  cache: /content/drive/MyDrive/MTG_MaxViTX/cache
+  results: /content/drive/MyDrive/MTG_MaxViTX/results
+  figures: /content/drive/MyDrive/MTG_MaxViTX/figures
+  state: /content/drive/MyDrive/MTG_MaxViTX/state
+  experiments: /content/drive/MyDrive/MTG_MaxViTX/q1_experiments
+  torch_home: /content/drive/MyDrive/MTG_MaxViTX/torch_cache
+
+data:
+  image_size: 256
+  kaggle_dataset: kelkalot/the-hyper-kvasir-dataset
+  official_split_url: https://raw.githubusercontent.com/simula/hyper-kvasir/refs/heads/master/official_splits/5_fold_split.csv
+  gastrovision_osf_project: 84e7f
+  classification_index: /content/drive/MyDrive/MTG_MambaX/data/metadata/hyper_kvasir_classification_index_v6.parquet
+  segmentation_index: /content/drive/MyDrive/MTG_MambaX/data/metadata/hyper_kvasir_segmentation_index_v7.parquet
+  gastrovision_index: /content/drive/MyDrive/MTG_MambaX/data/metadata/gastrovision_index.parquet
+  split_protocol:
+    test_fold: 0
+    validation_fold: 1
+    training_folds: [2, 3, 4]
+  normalization:
+    mean: [0.485, 0.456, 0.406]
+    std: [0.229, 0.224, 0.225]
+  persistent_segmentation_cache:
+    directory: /content/drive/MyDrive/MTG_MaxViTX/cache/runtime_cache_archives
+    local_directory: /content/MTG_MaxViTX_segmentation_cache
+    archive: hyper_kvasir_segmentation_runtime.tar
+    index: hyper_kvasir_segmentation_runtime_index.csv
+    manifest: hyper_kvasir_segmentation_runtime_manifest.json
+    minimum_verified_coverage: 0.95
+  cache_primary_classification_locally: true
+  cache_external_locally: true
+
+classes:
+  names:
+    - barretts
+    - bbps-0-1
+    - bbps-2-3
+    - dyed-lifted-polyps
+    - dyed-resection-margins
+    - hemorrhoids
+    - ileum
+    - impacted-stool
+    - normal-cecum
+    - normal-pylorus
+    - normal-z-line
+    - oesophagitis-a
+    - oesophagitis-b-d
+    - polyp
+    - retroflex-rectum
+    - retroflex-stomach
+    - short-segment-barretts
+    - ulcerative-colitis-0-1
+    - ulcerative-colitis-1-2
+    - ulcerative-colitis-2-3
+    - ulcerative-colitis-grade-1
+    - ulcerative-colitis-grade-2
+    - ulcerative-colitis-grade-3
+  polyp_label: 13
+
+model:
+  name: maxvit_rmlp_tiny_rw_256.sw_in1k
+  pretrained: true
+  decoder_dim: 128
+  use_multiscale_context: true
+  use_semantic_gating: true
+  use_boundary_head: true
+
+primary_training:
+  classification_batch_size: 16
+  segmentation_batch_size: 8
+  epochs: 30
+  early_stopping_patience: 6
+  step_checkpoint_interval: 25
+  continue_training: false
+  verify_checkpoint_selection: false
+  loss_weights:
+    classification: 1.0
+    segmentation: 1.0
+    segmentation_classification: 0.05
+    boundary: 0.20
+    cross_task_consistency: 0.15
+  optimizer:
+    name: AdamW
+    learning_rate: 0.0002
+    weight_decay: 0.0001
+  scheduler:
+    name: CosineAnnealingLR
+    t_max: 30
+    eta_min: 0.000004
+
+q1_suite:
+  run_heavy_suite: false
+  run_full_suite: false
+  experiment_seeds: [42, 123, 2024, 3407, 8192]
+  experiment_epochs: 30
+  experiment_patience: 6
+
+performance_refinement:
+  enabled: true
+  classification:
+    epochs: 8
+    patience: 3
+    encoder_learning_rate: 0.000005
+    head_learning_rate: 0.00005
+    weight_decay: 0.00005
+    checkpoint_interval: 40
+    target_accuracy: 0.90
+    tta_views: 4
+  segmentation:
+    epochs: 5
+    patience: 2
+    decoder_learning_rate: 0.0001
+    checkpoint_interval: 20
+    horizontal_tta: true
+
+balanced_ensemble_v6:
+  enabled: true
+  balanced_head:
+    epochs: 60
+    patience: 10
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    checkpoint_interval: 10
+  minimum_validation_accuracy: 0.90
+  segmentation_ensemble_enabled: true
+
+evaluation:
+  robustness_suite_enabled: true
+  segmentation_threshold_default: 0.5
+  segmentation_min_component_ratio_default: 0.0
+  profile_batch_size: 1
+  figure_dpi: 300
+
