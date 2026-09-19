@@ -1,0 +1,134 @@
+schema_version: 1
+source_notebook: MTG_MaxViTX_Final.ipynb
+profile: q1_resume_full_suite
+
+runtime:
+  platform: google_colab
+  device: auto
+  preferred_accelerator: cuda
+  seed: 42
+  num_workers: 0
+  mixed_precision_on_cuda: true
+  cudnn_deterministic: false
+  cudnn_benchmark: true
+
+paths:
+  drive_root: /content/drive/MyDrive
+  data_project: /content/drive/MyDrive/MTG_MambaX
+  project: /content/drive/MyDrive/MTG_MaxViTX
+  data: /content/drive/MyDrive/MTG_MambaX/data
+  raw: /content/drive/MyDrive/MTG_MambaX/data/raw
+  extracted: /content/drive/MyDrive/MTG_MambaX/data/extracted
+  metadata: /content/drive/MyDrive/MTG_MambaX/data/metadata
+  splits: /content/drive/MyDrive/MTG_MaxViTX/splits
+  checkpoints: /content/drive/MyDrive/MTG_MaxViTX/checkpoints
+  cache: /content/drive/MyDrive/MTG_MaxViTX/cache
+  results: /content/drive/MyDrive/MTG_MaxViTX/results
+  figures: /content/drive/MyDrive/MTG_MaxViTX/figures
+  state: /content/drive/MyDrive/MTG_MaxViTX/state
+  experiments: /content/drive/MyDrive/MTG_MaxViTX/q1_experiments
+  torch_home: /content/drive/MyDrive/MTG_MaxViTX/torch_cache
+
+data:
+  image_size: 256
+  classification_index: /content/drive/MyDrive/MTG_MambaX/data/metadata/hyper_kvasir_classification_index_v6.parquet
+  segmentation_index: /content/drive/MyDrive/MTG_MambaX/data/metadata/hyper_kvasir_segmentation_index_v7.parquet
+  external_mapping: /content/drive/MyDrive/MTG_MaxViTX/splits/gastrovision_external_mapped.csv
+  split_protocol:
+    test_fold: 0
+    validation_fold: 1
+    training_folds: [2, 3, 4]
+  normalization:
+    mean: [0.485, 0.456, 0.406]
+    std: [0.229, 0.224, 0.225]
+  persistent_cache:
+    directory: /content/drive/MyDrive/MTG_MaxViTX/cache/runtime_cache_archives
+    classification_archive: hyper_kvasir_classification_256.tar
+    external_archive: gastrovision_mapped_256.tar
+    segmentation_archive: hyper_kvasir_segmentation_runtime.tar
+    segmentation_index: hyper_kvasir_segmentation_runtime_index.csv
+  local_cache:
+    classification: /content/MTG_MaxViTX_classification_cache_256
+    external: /content/MTG_MaxViTX_gastrovision_cache_256
+    segmentation: /content/MTG_MaxViTX_segmentation_cache
+
+classes:
+  names:
+    - barretts
+    - bbps-0-1
+    - bbps-2-3
+    - dyed-lifted-polyps
+    - dyed-resection-margins
+    - hemorrhoids
+    - ileum
+    - impacted-stool
+    - normal-cecum
+    - normal-pylorus
+    - normal-z-line
+    - oesophagitis-a
+    - oesophagitis-b-d
+    - polyp
+    - retroflex-rectum
+    - retroflex-stomach
+    - short-segment-barretts
+    - ulcerative-colitis-0-1
+    - ulcerative-colitis-1-2
+    - ulcerative-colitis-2-3
+    - ulcerative-colitis-grade-1
+    - ulcerative-colitis-grade-2
+    - ulcerative-colitis-grade-3
+  polyp_label: 13
+
+model:
+  name: maxvit_rmlp_tiny_rw_256.sw_in1k
+  pretrained: true
+  decoder_dim: 128
+  use_multiscale_context: true
+  use_semantic_gating: true
+  use_boundary_head: true
+  dropout:
+    context: 0.15
+    decoder: 0.10
+    classifier: 0.25
+
+training:
+  classification_batch_size: 16
+  segmentation_batch_size: 8
+  epochs: 12
+  early_stopping_patience: 3
+  optimizer:
+    name: AdamW
+    learning_rate: 0.0002
+    weight_decay: 0.0001
+  scheduler:
+    name: CosineAnnealingLR
+    t_max: 12
+    eta_min: 0.000004
+  classification:
+    sampler: weighted_random
+    sample_weighting: inverse_class_frequency
+    replacement: true
+    label_smoothing: 0.05
+  loss_weights:
+    segmentation_classification: 0.05
+    boundary: 0.20
+    cross_task_consistency: 0.15
+
+q1_suite:
+  run_heavy_suite: true
+  run_full_suite: true
+  experiment_seeds: [42, 123, 2024, 3407, 8192]
+  ablation_seeds: [42]
+  classification_baseline_epochs: 12
+  classification_baseline_patience: 3
+  segmentation_baseline_epochs: 12
+  segmentation_baseline_patience: 3
+  bootstrap_resamples: 5000
+
+output:
+  figure_dpi: 300
+  resume_existing_runs: true
+  skip_dataset_download: true
+  skip_dataset_extraction: true
+  skip_primary_training: true
+

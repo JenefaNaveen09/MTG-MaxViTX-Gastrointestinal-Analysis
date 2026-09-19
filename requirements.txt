@@ -1,0 +1,16 @@
+timm==1.0.15
+albumentations
+opencv-python-headless
+scikit-learn
+scikit-image
+scipy
+umap-learn
+squarify
+pyarrow
+captum
+tqdm
+segmentation-models-pytorch
+statsmodels
+openpyxl
+PyYAML
+
